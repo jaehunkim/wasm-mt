@@ -25,9 +25,13 @@ js-sys = "0.3"
 serde = "1.0"
 serde_closure = "0.3"
 bincode = "1.2"
+getrandom = { version = "0.3", features = ["wasm_js"] }
 
 [dependencies.web-sys]
 version = "0.3"
 features = [
   'console',
 ]
+
+[patch.crates-io]
+getrandom = { version = "0.3", features = ["wasm_js"] }

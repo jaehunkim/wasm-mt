@@ -182,20 +182,20 @@
 //! [work stealing]: https://en.wikipedia.org/wiki/Work_stealing
 
 #![feature(trait_alias)]
-#![feature(async_closure)]
 
-use wasm_bindgen::prelude::*;
 use js_sys::{ArrayBuffer, Object, Reflect};
 use std::cell::RefCell;
+use wasm_bindgen::prelude::*;
+use web_sys::console;
 
-pub mod prelude;
-pub mod utils;
-mod job;
 mod atw;
-mod worker;
+mod job;
+pub mod prelude;
 mod thread;
+pub mod utils;
+mod worker;
 
-pub use job::{MtClosure, MtAsyncClosure};
+pub use job::{MtAsyncClosure, MtClosure};
 pub use thread::Thread;
 
 #[macro_export]
@@ -213,18 +213,31 @@ macro_rules! debug_ln {
         }
     };
 }
-
 #[macro_export]
 macro_rules! exec {
-    ($th:expr, async $clos:expr) => (($th).exec_async(FnOnce!(async $clos)));
-    ($th:expr, $clos:expr) => (($th).exec(FnOnce!($clos)));
+    // 1) async closures (with optional `move`)
+    ($th:expr, async $($clos:tt)+) => {
+        ($th).exec_async(FnOnce!(async $($clos)+))
+    };
+    // 2) sync closures (with optional `move`)
+    ($th:expr, $($clos:tt)+) => {
+        ($th).exec(FnOnce!($($clos)+))
+    };
 }
 
 #[macro_export]
-macro_rules! exec_js { ($th:expr, $str:expr) => (($th).exec_js($str)); }
+macro_rules! exec_js {
+    ($th:expr, $str:expr) => {
+        ($th).exec_js($str)
+    };
+}
 
 #[macro_export]
-macro_rules! exec_js_async { ($th:expr, $str:expr) => (($th).exec_js_async($str)); }
+macro_rules! exec_js_async {
+    ($th:expr, $str:expr) => {
+        ($th).exec_js_async($str)
+    };
+}
 
 pub struct WasmMt {
     pkg_js_uri: Option<String>,
@@ -247,6 +260,7 @@ impl WasmMt {
 
     pub fn new_with_arraybuffers(ab_js: ArrayBuffer, ab_wasm: ArrayBuffer) -> Self {
         let ab_init = Self::ab_init_from(&utils::text_from_ab(&ab_js).unwrap());
+        console::log_1(&format!("new_with_arraybuffers: ab_init: {:?}", ab_init).into());
 
         Self {
             pkg_js_uri: None,
@@ -302,16 +316,37 @@ impl WasmMt {
         // https://rustwasm.github.io/wasm-bindgen/api/js_sys/struct.ArrayBuffer.html#method.slice
         Thread::new(
             self.ab_init.borrow().as_ref().unwrap().slice(0),
-            self.ab_wasm.borrow().as_ref().unwrap().slice(0))
+            self.ab_wasm.borrow().as_ref().unwrap().slice(0),
+        )
     }
 
-    fn ab_init_from(pkg_js: &str) -> ArrayBuffer {
-        let mut init_js = String::new();
-        init_js.push_str("return () => { ");
-        init_js.push_str(&pkg_js);
-        init_js.push_str(" return wasm_bindgen; };");
+    // fn ab_init_from(pkg_js: &str) -> ArrayBuffer {
+    //     let mut init_js = String::new();
+    //     init_js.push_str("return () => { ");
+    //     init_js.push_str(&pkg_js);
+    //     init_js.push_str(" return wasm_bindgen; };");
 
-        utils::ab_from_text(&init_js)
+    //     utils::ab_from_text(&init_js)
+    // }
+    fn ab_init_from(pkg_js: &str) -> ArrayBuffer {
+        // 1) Strip only the old default-export line
+        let stripped = pkg_js.replace("export default __wbg_init;", "");
+
+        // 2) Wrap: define init, keep `exports` as-is, then merge them
+        let with_init = format!(
+            r#"const init = __wbg_init;
+            {}    // your original exports & glue live here
+            "#,
+            stripped
+        );
+
+        // 3) Final wrapper returns the merged object, not just init
+        let wrapper = format!(
+            "return () => {{\n{}\n  return wasm_bindgen;\n}};",
+            with_init
+        );
+
+        utils::ab_from_text(&wrapper)
     }
 
     async fn create_ab_init(pkg_js_uri: &str) -> Result<ArrayBuffer, JsValue> {
@@ -332,8 +367,9 @@ fn encode_task_msg(name: &str, data: Option<&JsValue>) -> Object {
 
 fn decode_task_msg(msg: &JsValue) -> (String, JsValue) {
     let name = Reflect::get(msg, &JsValue::from("task"))
-        .unwrap_throw().as_string().unwrap_throw();
-    let jsv = Reflect::get(msg, &JsValue::from("data"))
+        .unwrap_throw()
+        .as_string()
         .unwrap_throw();
+    let jsv = Reflect::get(msg, &JsValue::from("data")).unwrap_throw();
     (name, jsv)
 }

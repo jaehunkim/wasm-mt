@@ -45,8 +45,6 @@ serde_closure = "0.3"
 # Usage
 
 ```rust
-#![feature(async_closure)]
-
 use wasm_mt_pool::prelude::*;
 use wasm_mt::utils::{console_ln, sleep};
 

@@ -1,12 +1,10 @@
-#![feature(async_closure)]
-
+use std::rc::Rc;
 use wasm_bindgen::prelude::*;
-use wasm_bindgen::{JsCast, Clamped};
+use wasm_bindgen::{Clamped, JsCast};
 use wasm_bindgen_futures::spawn_local;
-use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement, ImageData};
 use wasm_mt::prelude::*;
 use wasm_mt::utils::{console_ln, Counter};
-use std::rc::Rc;
+use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement, ImageData};
 
 mod julia_set;
 
@@ -35,16 +33,15 @@ fn get_canvas_context(id: &str) -> CanvasRenderingContext2d {
     ctx
 }
 
-fn compute_image(
-    width: u32,
-    height: u32,
-    use_arraybuffer: bool,
-) -> Result<JsValue, JsValue> {
+fn compute_image(width: u32, height: u32, use_arraybuffer: bool) -> Result<JsValue, JsValue> {
     julia_set::compute(
-        width, height,
+        width,
+        height,
         0.00375, // scale adjusted for 800x800
-        -0.15, 0.65, // C
-        use_arraybuffer)
+        -0.15,
+        0.65, // C
+        use_arraybuffer,
+    )
 }
 
 fn draw_image(
@@ -62,9 +59,8 @@ fn draw_image(
             .into();
         ctx.put_image_data(&data, 0.0, 0.0).unwrap();
     } else {
-        ctx.put_image_data(
-            data.dyn_ref::<ImageData>().unwrap(),
-            0.0, 0.0).unwrap();
+        ctx.put_image_data(data.dyn_ref::<ImageData>().unwrap(), 0.0, 0.0)
+            .unwrap();
     };
 }
 
@@ -80,7 +76,8 @@ async fn run_task(th: &wasm_mt::Thread) {
     let data = if use_arraybuffer {
         // `ArrayBuffer` workaround
         exec!(th, move || compute_image(width, height, use_arraybuffer))
-            .await.unwrap()
+            .await
+            .unwrap()
 
         // TODO Support 'transfer' functionality in `wasm_mt`. (That's not the bottle
         // of this example app though.)
@@ -88,7 +85,8 @@ async fn run_task(th: &wasm_mt::Thread) {
         // FIXME !!!!
         //
         exec!(th, move || compute_image(width, height, use_arraybuffer))
-            .await.unwrap()
+            .await
+            .unwrap()
         //
         // On Chrome/Opera, `debug_ln!()` shows
         //   on_message(): msg: JsValue(null); oops, `.await` will hang!!
@@ -151,7 +149,11 @@ pub async fn run(mt: WasmMt) -> Result<(), JsValue> {
     for i in 0..num {
         run_task(&v[i]).await;
     }
-    console_ln!("serial executor: {} tasks in {:.2}ms", num, perf.now() - time_start);
+    console_ln!(
+        "serial executor: {} tasks in {:.2}ms",
+        num,
+        perf.now() - time_start
+    );
 
     // Parallel executor
 
@@ -164,7 +166,11 @@ pub async fn run(mt: WasmMt) -> Result<(), JsValue> {
 
             if count.inc() == num {
                 let perf = web_sys::window().unwrap().performance().unwrap();
-                console_ln!("parallel executor {} tasks in {:.2}ms", num, perf.now() - time_start);
+                console_ln!(
+                    "parallel executor {} tasks in {:.2}ms",
+                    num,
+                    perf.now() - time_start
+                );
             }
         });
     }

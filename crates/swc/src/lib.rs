@@ -9,13 +9,12 @@ use std::{
 };
 
 use swc::{
-    config::{Config, ModuleConfig, JscConfig, Options},
+    config::{Config, JscConfig, ModuleConfig, Options},
     Compiler,
 };
 use swc_common::{
     errors::{DiagnosticBuilder, Emitter, Handler, SourceMapperDyn},
-    FileName, FilePathMapping, SourceMap,
-    Globals, GLOBALS,
+    FileName, FilePathMapping, Globals, SourceMap, GLOBALS,
 };
 use swc_ecma_ast::EsVersion;
 use swc_ecma_transforms_module::common_js;
@@ -37,7 +36,7 @@ pub fn transform_sync(input: &str) -> Option<String> {
     };
 
     let (c, handler, _errors) = compiler();
-    let fm = c.cm.new_source_file(FileName::Anon, input.into());
+    let fm = c.cm.new_source_file(Arc::new(FileName::Anon), input.into());
 
     let mut out = None;
     GLOBALS.set(&Globals::new(), || {
@@ -75,7 +74,7 @@ fn new_handler(_cm: Arc<SourceMapperDyn>) -> (Arc<Handler>, BufferedError) {
 struct MyEmiter(BufferedError);
 
 impl Emitter for MyEmiter {
-    fn emit(&mut self, db: &DiagnosticBuilder<'_>) {
+    fn emit(&mut self, db: &mut DiagnosticBuilder<'_>) {
         let z = &(self.0).0;
         for msg in &db.message {
             z.write().unwrap().push_str(&msg.0);

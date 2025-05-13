@@ -1,21 +1,25 @@
-#![feature(async_closure)]
-
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::spawn_local;
 
 use wasm_mt::utils::{console_ln, debug_ln, sleep};
 use wasm_mt_pool::prelude::*;
 
+use rand::Rng;
 use std::cell::RefCell;
 use std::rc::Rc;
-use rand::Rng;
 
 #[wasm_bindgen]
 pub fn app() {
     spawn_local(async move {
         let size = 2;
-        let pool = ThreadPool::new(size, "./pkg/http.js").and_init().await.unwrap();
-        console_ln!("a work-stealing thread pool (with {} threads) is ready now!", size);
+        let pool = ThreadPool::new(size, "./pkg/http.js")
+            .and_init()
+            .await
+            .unwrap();
+        console_ln!(
+            "a work-stealing thread pool (with {} threads) is ready now!",
+            size
+        );
 
         let _ = run(pool).await;
     });
@@ -38,11 +42,19 @@ pub async fn run(pool: ThreadPool) -> ResultJJ {
         };
 
         console_ln!("client: requesting page-{}", i);
-        pool_exec!(pool, async move || -> ResultJJ {
-            let page = format!("  page-{}-content-{}", i, rand::thread_rng().gen_range(0.0, 1.0));
-            sleep(ms_delay_page).await;
-            Ok(JsValue::from(&page))
-        }, cb);
+        pool_exec!(
+            pool,
+            async move || -> ResultJJ {
+                let page = format!(
+                    "  page-{}-content-{}",
+                    i,
+                    rand::thread_rng().gen_range(0.0, 1.0)
+                );
+                sleep(ms_delay_page).await;
+                Ok(JsValue::from(&page))
+            },
+            cb
+        );
     }
 
     if false {

@@ -21,7 +21,7 @@ exclude = [
 test = false
 
 [dev-dependencies]
-wasm-bindgen-test = "0.3"
+wasm-bindgen-test = "0.3.43"
 
 [dependencies]
 wasm-mt = "0.1"
