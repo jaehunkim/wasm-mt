@@ -9,12 +9,13 @@ use std::{
 };
 
 use swc::{
-    config::{Config, JscConfig, ModuleConfig, Options},
+    config::{Config, ModuleConfig, JscConfig, Options},
     Compiler,
 };
 use swc_common::{
     errors::{DiagnosticBuilder, Emitter, Handler, SourceMapperDyn},
-    FileName, FilePathMapping, Globals, SourceMap, GLOBALS,
+    FileName, FilePathMapping, SourceMap,
+    Globals, GLOBALS,
 };
 use swc_ecma_ast::EsVersion;
 use swc_ecma_transforms_module::common_js;

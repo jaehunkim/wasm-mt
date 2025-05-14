@@ -12,7 +12,6 @@ wasm-bindgen-test = "0.3"
 wasm-mt-test = "0.1"
 
 [dependencies]
-getrandom = { version = "0.3", features = ["wasm_js"] }
 wasm-mt = "0.1"
 
 serde = { version = "1.0", features = ["derive"] }
@@ -27,6 +26,3 @@ version = "0.3"
 features = [
   'console',
 ]
-
-[patch.crates-io]
-getrandom = { version = "0.3", features = ["wasm_js"] }

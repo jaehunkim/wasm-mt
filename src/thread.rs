@@ -1,14 +1,14 @@
-use super::atw::Thread as AtwThread;
-use super::encode_task_msg;
-use super::job;
 use crate::debug_ln;
-use js_sys::{Array, ArrayBuffer, Object, Reflect};
+use std::rc::Rc;
 use std::cell::RefCell;
 use std::future::Future;
 use std::pin::Pin;
-use std::rc::Rc;
 use wasm_bindgen::prelude::*;
+use js_sys::{Array, ArrayBuffer, Object, Reflect};
 use web_sys::{Blob, BlobPropertyBag, Url};
+use super::atw::Thread as AtwThread;
+use super::job;
+use super::encode_task_msg;
 
 type ResultJJ = Result<JsValue, JsValue>;
 
@@ -26,11 +26,12 @@ impl Thread {
         // rust-wasm equivalent of --
         //   return URL.createObjectURL(
         //     new Blob([content], {type: 'text/javascript'}));
+        let options = BlobPropertyBag::new();
+        options.set_type("text/javascript");
         let blob = Blob::new_with_str_sequence_and_options(
-            &Array::of1(&JsValue::from(content)),
-            BlobPropertyBag::new().type_("text/javascript"),
-        )
-        .unwrap();
+                &Array::of1(&JsValue::from(content)),
+                &options)
+            .unwrap();
 
         Url::create_object_url_with_blob(&blob).unwrap()
     }
@@ -39,61 +40,43 @@ impl Thread {
     }
 
     fn get_worker_content() -> &'static str {
-        r#"
+        "
         const instantiate = async (abInit, abWasm) => {
+            // console.log('abInit:', abInit);
             const initJs = new TextDecoder().decode(abInit);
-            let wrapperFn;
-            try {
-                wrapperFn = new Function(initJs);
-            } catch (e) {
-                throw e;
-            }
-    
-            let init;
-            try {
-                init = wrapperFn.call(null);
-            } catch (e) {
-                throw e;
-            }
-    
-            let wbg;
-            try {
-                wbg = init();
-            } catch (e) {
-                throw e;
-            }
-    
-            let wasm;
-            try {
-                const wasm = await wbg({ module_or_path: abWasm });
-            } catch (e) {
-                throw e;
-            }
-    
+            const init = (new Function(initJs)).call(null);
+            const wbg = init();
+            const wasm = await wbg({ module_or_path: abWasm });
+            // console.log('wbg:', wbg);
+            // console.log('wasm:', wasm);
             return { wbg, wasm };
         };
-    
+
         let first = true;
-        self.onmessage = async (e) => {
-            const { id, payload } = e.data;
+        self.onmessage = async e => {
+            // console.log('onmessage(): e.data', e.data);
+
+            const { id, payload } = e.data; // destructure the initial `atw` msg
+            const { abInit, abWasm } = payload;
             if (first) {
                 first = false;
                 try {
-                    const { wbg, wasm } = await instantiate(payload.abInit, payload.abWasm);
+                    const { wbg, wasm } = await instantiate(abInit, abWasm);
+                    // throw 'ok, bye for now'; // !! debug
+
+                    // This overrides `self.onmessage`
                     const _worker = wbg.wmt_bootstrap(self, id);
+                    
                     self.wmtContext = { wbg, wasm, _worker };
-                } catch (err) {
-                    console.error("[worker] bootstrap error:", err);
+                    // console.log('bootstrap complete - self.wmtContext:', self.wmtContext);
+                } catch (e) {
+                    console.log('bootstrap error:', e);
                 }
-            } else {
-                try {
-                    self.wmtContext._worker.postMessage({ id, payload });
-                } catch (err) {
-                    console.error("[worker] forward error:", err);
-                }
+                return;
             }
+            throw 'oh no';
         };
-        "#
+        "
     }
 
     pub fn new(ab_init: ArrayBuffer, ab_wasm: ArrayBuffer) -> Self {
@@ -120,10 +103,8 @@ impl Thread {
         Reflect::set(payload.as_ref(), &JsValue::from("abInit"), &ab_init).unwrap();
         Reflect::set(payload.as_ref(), &JsValue::from("abWasm"), &ab_wasm).unwrap();
 
-        let result = self
-            .atw_th
-            .send_request(&payload, Some(&Array::of2(&ab_init, &ab_wasm)))
-            .await;
+        let result = self.atw_th.send_request(
+            &payload, Some(&Array::of2(&ab_init, &ab_wasm))).await;
         let result = match result {
             Ok(jsv) => format!("ok: {}", jsv.as_string().unwrap()),
             Err(jsv) => format!("err: {}", jsv.as_string().unwrap()),
@@ -140,10 +121,7 @@ impl Thread {
         Ok(self)
     }
 
-    pub async fn exec<F>(&self, clos: F) -> ResultJJ
-    where
-        F: job::MtClosure,
-    {
+    pub async fn exec<F>(&self, clos: F) -> ResultJJ where F: job::MtClosure {
         assert!(*self.is_initialized.borrow());
 
         type _TypeT = Pin<Box<dyn Future<Output = ResultJJ>>>;
@@ -152,10 +130,7 @@ impl Thread {
         self.atw_th.send_request(&msg, Some(&Array::of1(&ab))).await
     }
 
-    pub async fn exec_async<F, T>(&self, aclos: F) -> ResultJJ
-    where
-        F: job::MtAsyncClosure<T>,
-    {
+    pub async fn exec_async<F, T>(&self, aclos: F) -> ResultJJ where F: job::MtAsyncClosure<T> {
         assert!(*self.is_initialized.borrow());
 
         let ab = job::Job::<T>::from_aclos(aclos);

@@ -1,6 +1,6 @@
 use wasm_mt::prelude::*;
-use wasm_mt::utils::console_ln;
 use wasm_mt::Thread;
+use wasm_mt::utils::console_ln;
 
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::spawn_local;
@@ -22,9 +22,7 @@ pub fn app() {
 
 //
 
-fn add(a: i32, b: i32) -> i32 {
-    a + b
-}
+fn add(a: i32, b: i32) -> i32 { a + b }
 
 async fn run_closure(th: &Thread) -> Result<(), JsValue> {
     let a = 1;
@@ -33,8 +31,7 @@ async fn run_closure(th: &Thread) -> Result<(), JsValue> {
         let c = add(a, b);
 
         Ok(JsValue::from(c))
-    })
-    .await?;
+    }).await?;
     assert_eq!(ans, JsValue::from(3));
     console_ln!("run_closure ans: {:?}", ans);
 
@@ -56,8 +53,7 @@ async fn run_async_closure(th: &Thread) -> Result<(), JsValue> {
         let c = sub(a, b).await;
 
         Ok(JsValue::from(c))
-    })
-    .await?;
+    }).await?;
     assert_eq!(ans, JsValue::from(-1));
     console_ln!("run_async_closure ans: {:?}", ans);
 
@@ -67,14 +63,10 @@ async fn run_async_closure(th: &Thread) -> Result<(), JsValue> {
 //
 
 async fn run_js(th: &Thread) -> Result<(), JsValue> {
-    let ans = exec_js!(
-        th,
-        "
+    let ans = exec_js!(th, "
         const add = (a, b) => a + b;
         return add(1, 2);
-    "
-    )
-    .await?;
+    ").await?;
     assert_eq!(ans, JsValue::from(3));
     console_ln!("run_js ans: {:?}", ans);
 
@@ -84,16 +76,12 @@ async fn run_js(th: &Thread) -> Result<(), JsValue> {
 //
 
 async fn run_async_js(th: &Thread) -> Result<(), JsValue> {
-    let ans = exec_js_async!(
-        th,
-        "
+    let ans = exec_js_async!(th, "
         const sub = (a, b) => new Promise(resolve => {
             setTimeout(() => resolve(a - b), 1000);
         });
         return await sub(1, 2);
-    "
-    )
-    .await?;
+    ").await?;
     assert_eq!(ans, JsValue::from(-1));
     console_ln!("run_async_js ans: {:?}", ans);
 
