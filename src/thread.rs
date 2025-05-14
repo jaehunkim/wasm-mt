@@ -26,9 +26,12 @@ impl Thread {
         // rust-wasm equivalent of --
         //   return URL.createObjectURL(
         //     new Blob([content], {type: 'text/javascript'}));
+        let options = BlobPropertyBag::new();
+        options.set_type("text/javascript");    
+
         let blob = Blob::new_with_str_sequence_and_options(
             &Array::of1(&JsValue::from(content)),
-            BlobPropertyBag::new().type_("text/javascript"),
+            &options,
         )
         .unwrap();
 

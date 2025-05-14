@@ -1,19 +1,15 @@
 use wasm_mt_pool::prelude::*;
 
-use js_sys::ArrayBuffer;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::spawn_local;
 use wasm_mt::utils::{console_ln, fetch_as_arraybuffer, sleep};
+use js_sys::ArrayBuffer;
 
 #[wasm_bindgen]
 pub fn app() {
     spawn_local(async move {
-        let ab_js = fetch_as_arraybuffer("./pkg/pool_arraybuffers.js")
-            .await
-            .unwrap();
-        let ab_wasm = fetch_as_arraybuffer("./pkg/pool_arraybuffers_bg.wasm")
-            .await
-            .unwrap();
+        let ab_js = fetch_as_arraybuffer("./pkg/pool_arraybuffers.js").await.unwrap();
+        let ab_wasm = fetch_as_arraybuffer("./pkg/pool_arraybuffers_bg.wasm").await.unwrap();
         run(ab_js, ab_wasm).await.unwrap();
     });
 }
@@ -21,8 +17,7 @@ pub fn app() {
 pub async fn run(ab_js: ArrayBuffer, ab_wasm: ArrayBuffer) -> Result<(), JsValue> {
     let size = 2;
     let pool = ThreadPool::new_with_arraybuffers(size, ab_js, ab_wasm)
-        .and_init()
-        .await?;
+        .and_init().await?;
     console_ln!("pool with {} threads is ready now!", size);
 
     let num = 4;

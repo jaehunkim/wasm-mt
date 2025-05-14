@@ -26,6 +26,3 @@ swc_common = "9.2"
 swc_ecma_ast = "9.0"
 swc_ecma_transforms_module = "15.0"
 getrandom = { version = "0.3", features = ["wasm_js"] }
-
-[patch.crates-io]
-getrandom = { version = "0.3", features = ["wasm_js"] }

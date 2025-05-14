@@ -1,20 +1,15 @@
 //! Utility for testing crates with [`wasm-mt`](https://crates.io/crates/wasm-mt).
 
-use js_sys::ArrayBuffer;
-use wasm_bindgen::prelude::*;
-use wasm_mt::utils::{ab_from_text, fetch_as_arraybuffer, fetch_as_text, run_js};
 use wasm_mt::WasmMt;
+use wasm_mt::utils::{ab_from_text, fetch_as_arraybuffer, fetch_as_text, run_js};
 use wasm_mt_swc::transform_sync;
-use web_sys::console;
+use wasm_bindgen::prelude::*;
+use js_sys::ArrayBuffer;
 
 // Per crates/web only; TODO generalize for crates/node
 
-pub fn get_pkg_js_uri() -> String {
-    // e.g. http://127.0.0.1:8000/wasm-bindgen-test
-    let href = run_js("return location.href;")
-        .unwrap()
-        .as_string()
-        .unwrap();
+pub fn get_pkg_js_uri() -> String { // e.g. http://127.0.0.1:8000/wasm-bindgen-test
+    let href = run_js("return location.href;").unwrap().as_string().unwrap();
     format!("{}wasm-bindgen-test", href)
 }
 
@@ -22,7 +17,9 @@ pub async fn get_arraybuffers() -> Result<(ArrayBuffer, ArrayBuffer), JsValue> {
     let pkg_js_uri = get_pkg_js_uri();
     let pkg_wasm_uri = format!("{}_bg.wasm", pkg_js_uri);
 
-    let ab_js = ab_from_text(&pkg_js_no_modules_from(&fetch_as_text(&pkg_js_uri).await?));
+    let ab_js = ab_from_text(
+        &pkg_js_no_modules_from(
+            &fetch_as_text(&pkg_js_uri).await?));
     let ab_wasm = fetch_as_arraybuffer(&pkg_wasm_uri).await?;
 
     Ok((ab_js, ab_wasm))
@@ -51,19 +48,15 @@ pub async fn create_ab_init(pkg_js_uri: &str) -> Result<ArrayBuffer, JsValue> {
 
     let mut init_js = String::new();
     // init_js.push_str(&fix_nodejs); // TODO in case of tests/crates/node
-    init_js.push_str(
-        "
+    init_js.push_str("
         return () => {
             const exports = {};
-    ",
-    );
+    ");
     init_js.push_str(&pkg_js);
-    init_js.push_str(
-        "
+    init_js.push_str("
             return Object.assign(init, exports);
         };
-    ",
-    );
+    ");
 
     Ok(ab_from_text(&init_js))
 }

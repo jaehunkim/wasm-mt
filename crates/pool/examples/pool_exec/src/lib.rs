@@ -1,17 +1,15 @@
 use wasm_mt_pool::prelude::*;
 
+use wasm_mt::utils::{console_ln, sleep};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::spawn_local;
-use wasm_mt::utils::{console_ln, sleep};
 
 #[wasm_bindgen]
 pub fn app() {
     spawn_local(async move {
         let size = 2;
         let pool = ThreadPool::new(size, "./pkg/pool_exec.js")
-            .and_init()
-            .await
-            .unwrap();
+            .and_init().await.unwrap();
 
         console_ln!("pool with {} threads is ready now!", size);
 
@@ -48,27 +46,19 @@ async fn demo(pool: &ThreadPool) -> Result<(), JsValue> {
 
     console_ln!("c) 💦 pool_exec! {} closures with callback:", num);
     for _ in 0..num {
-        pool_exec!(
-            pool,
-            move || {
-                console_ln!("c) closure: done.");
-                Ok(JsValue::from("C"))
-            },
-            cb
-        );
+        pool_exec!(pool, move || {
+            console_ln!("c) closure: done.");
+            Ok(JsValue::from("C"))
+        }, cb);
     }
 
     console_ln!("d) 💦 pool_exec! {} async closures with callback:", num);
     for _ in 0..num {
-        pool_exec!(
-            pool,
-            async move || {
-                sleep(1000).await;
-                console_ln!("d) async closure: done.");
-                Ok(JsValue::from("D"))
-            },
-            cb
-        );
+        pool_exec!(pool, async move || {
+            sleep(1000).await;
+            console_ln!("d) async closure: done.");
+            Ok(JsValue::from("D"))
+        }, cb);
     }
 
     sleep(6_000).await; // Do sleep long enough to ensure all jobs are completed.
